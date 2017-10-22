@@ -113,7 +113,7 @@ vector<double> getFrenet(double x, double y, double theta, const vector<double> 
 	double centerToPos = distance(center_x,center_y,x_x,x_y);
 	double centerToRef = distance(center_x,center_y,proj_x,proj_y);
 
-	if(centerToPos <= centerToRef)
+	if(centerToPos <= centeroRef)
 	{
 		frenet_d *= -1;
 	}

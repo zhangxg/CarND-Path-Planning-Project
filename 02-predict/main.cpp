@@ -11,8 +11,7 @@ vector<vector<double> > Load_State(string file_name)
     ifstream in_state_(file_name.c_str(), ifstream::in);
     vector< vector<double >> state_out;
     string line;
-    
-    
+
     while (getline(in_state_, line)) 
     {
         istringstream iss(line);

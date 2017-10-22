@@ -24,9 +24,9 @@ public:
  	*/
  	virtual ~GNB();
 
- 	void train(vector<vector<double> > data, vector<string>  labels);
+ 	void train(vector<vector<double>> data, vector<string> labels);
 
-  	string predict(vector<double>);
+  string predict(vector<double>);
 
 };
 
