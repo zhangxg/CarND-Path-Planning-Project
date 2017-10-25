@@ -260,6 +260,37 @@ int main()
 
           int prev_size = previous_path_x.size();
 
+          // if there are remaining point in previous path, 
+          // we set the car's s to the last waypoint's s
+          if (prev_size > 0)
+          {
+            car_s = end_path_s;
+          }
+
+          bool too_close = false;
+
+          for (int i = 0; i < sensor_fusion.size(); ++i)
+          {
+            float d = sensor_fusion[i][6];
+            if (d > (2+4*lane-2) && d < (2+4*lane+2)) // d in (4, 8), which is lane 1; 
+            {
+              double vx = sensor_fusion[i][3];
+              double vy = sensor_fusion[i][4];
+              double check_speed = sqrt(vx*vx + vy*vy);
+              double check_car_s = sensor_fusion[i][5];
+
+              // here we are using the remaining points of "my car" to calculate the other car's predication s; since each points is 0.02 seconds, we mutiple it by the speed of the car. 
+              check_car_s += ((double)prev_size*0.02*check_speed);
+
+              // here we only care about the car in front of us, 
+              // with the condition check of check_car_s > car_s
+              if (check_car_s > car_s && (check_car_s - car_s) < 30)
+              {
+                ref_vel = 29.5;
+              }
+            }
+          }
+
           std::vector<double> ptsx;
           std::vector<double> ptsy;
 
