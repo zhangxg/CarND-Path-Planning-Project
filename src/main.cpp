@@ -218,7 +218,10 @@ int main()
   // xg: the socket package 
   int lane = 1;
 
-  double ref_vel = 49.5;
+  // to avoid jerk, this needs to be set to zero, 
+  // accelerate from zero, with 0.224 for each step;
+  // double ref_vel = 49.5;
+  double ref_vel = 0.0;
 
   h.onMessage([&ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy, &lane](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -286,9 +289,22 @@ int main()
               // with the condition check of check_car_s > car_s
               if (check_car_s > car_s && (check_car_s - car_s) < 30)
               {
-                ref_vel = 29.5;
+                // with this set, i saw a jerk in the simulator, 
+                // this happens because the speed is suddenly changed from 
+                // 49.5 to 29.5. 
+                // ref_vel = 29.5;
+                too_close = true;
               }
             }
+          }
+
+          if (too_close)
+          {
+            ref_vel -= 0.224;
+          }
+          else if (ref_vel < 49.5)
+          {
+            ref_vel += 0.224;
           }
 
           std::vector<double> ptsx;
