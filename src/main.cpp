@@ -294,6 +294,11 @@ int main()
                 // 49.5 to 29.5. 
                 // ref_vel = 29.5;
                 too_close = true;
+                // if it's close, we blindly change to the left lane. 
+                if (lane > 0)
+                {
+                  lane = 0;
+                }
               }
             }
           }
@@ -305,6 +310,9 @@ int main()
           else if (ref_vel < 49.5)
           {
             ref_vel += 0.224;
+            // here i want to change lane back to 1, 
+            // found that the car starts quite slow.
+            // lane = 1;
           }
 
           std::vector<double> ptsx;
