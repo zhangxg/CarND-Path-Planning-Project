@@ -27,25 +27,22 @@ def PTG(start_s, start_d, target_vehicle, delta, T, predictions):
      start_d - [d, d_dot, d_ddot]
 
      target_vehicle - id of leading vehicle (int) which can be used to retrieve
-       that vehicle from the "predictions" dictionary. This is the vehicle that 
-       we are setting our trajectory relative to.
+       that vehicle from the "predictions" dictionary. This is the vehicle that we are setting our trajectory relative to.
 
-     delta - a length 6 array indicating the offset we are aiming for between us
-       and the target_vehicle. So if at time 5 the target vehicle will be at 
+     delta - a length 6 array indicating the offset we are aiming for between us and the target_vehicle. So if at time 5 the target vehicle will be at 
        [100, 10, 0, 0, 0, 0] and delta is [-10, 0, 0, 4, 0, 0], then our goal 
-       state for t = 5 will be [90, 10, 0, 4, 0, 0]. This would correspond to a 
-       goal of "follow 10 meters behind and 4 meters to the right of target vehicle"
+       state for t = 5 will be [90, 10, 0, 4, 0, 0]. This would correspond to a goal of "follow 10 meters behind and 4 meters to the right of target vehicle"
 
      T - the desired time at which we will be at the goal (relative to now as t=0)
 
      predictions - dictionary of {v_id : vehicle }. Each vehicle has a method 
-       vehicle.state_in(time) which returns a length 6 array giving that vehicle's
-       expected [s, s_dot, s_ddot, d, d_dot, d_ddot] state at that time.
+       vehicle.state_in(time) which returns a length 6 array giving that vehicle's expected [s, s_dot, s_ddot, d, d_dot, d_ddot] state at that time.
 
     return:
-     (best_s, best_d, best_t) where best_s are the 6 coefficients representing s(t)
-     best_d gives coefficients for d(t) and best_t gives duration associated w/ 
-     this trajectory.
+     (best_s, best_d, best_t) where: 
+     best_s are the 6 coefficients representing s(t)
+     best_d gives coefficients for d(t) and 
+     best_t gives duration associated w/ this trajectory.
     """
     target = predictions[target_vehicle]
     # generate alternative goals
@@ -59,6 +56,7 @@ def PTG(start_s, start_d, target_vehicle, delta, T, predictions):
         goals = [(goal_s, goal_d, t)]
         for _ in range(N_SAMPLES):
             perturbed = perturb_goal(goal_s, goal_d)
+            ## xg: why the perturbed and origianl co-exist? 
             goals.append((perturbed[0], perturbed[1], t))
         all_goals += goals
         t += timestep
@@ -72,6 +70,7 @@ def PTG(start_s, start_d, target_vehicle, delta, T, predictions):
         trajectories.append(tuple([s_coefficients, d_coefficients, t]))
     
     best = min(trajectories, key=lambda tr: calculate_cost(tr, target_vehicle, delta, T, predictions, WEIGHTED_COST_FUNCTIONS))
+    # already get the minimum, why bother to calcualte again? 
     calculate_cost(best, target_vehicle, delta, T, predictions, WEIGHTED_COST_FUNCTIONS, verbose=True)
     return best
     
@@ -88,6 +87,7 @@ def calculate_cost(trajectory, target_vehicle, delta, goal_t, predictions, cost_
 def perturb_goal(goal_s, goal_d):
     """
     Returns a "perturbed" version of the goal.
+    <xg>: add uncertainties, the sigma is hyper-parameters
     """
     new_s_goal = []
     for mu, sig in zip(goal_s, SIGMA_S):
@@ -101,6 +101,9 @@ def perturb_goal(goal_s, goal_d):
 
 def JMT(start, end, T):
     """
+    <xg>
+        solve the coefficient. 
+    </xg>
     Calculates Jerk Minimizing Trajectory for start, end and T.
     """
     a_0, a_1, a_2 = start[0], start[1], start[2] / 2.0

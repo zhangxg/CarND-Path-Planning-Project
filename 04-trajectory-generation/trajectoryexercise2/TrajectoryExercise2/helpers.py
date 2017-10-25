@@ -8,6 +8,7 @@ class Vehicle(object):
     def __init__(self, start):
         self.start_state = start
     
+    # xg: rediction model to the other traffic. 
     def state_in(self, t):
         s = self.start_state[:3]
         d = self.start_state[3:]

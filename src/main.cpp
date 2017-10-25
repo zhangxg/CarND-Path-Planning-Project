@@ -8,6 +8,7 @@
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
+#include "spline.h"
 
 using namespace std;
 
@@ -113,7 +114,7 @@ vector<double> getFrenet(double x, double y, double theta, const vector<double> 
 	double centerToPos = distance(center_x,center_y,x_x,x_y);
 	double centerToRef = distance(center_x,center_y,proj_x,proj_y);
 
-	if(centerToPos <= centeroRef)
+	if(centerToPos <= centerToRef)
 	{
 		frenet_d *= -1;
 	}
@@ -240,6 +241,40 @@ int main() {
 
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
+            //xg: getting started code:
+            double dist_inc = 0.5;
+            
+            // std::vector<double> f_start = getFrenet(car_x, car_y, car_yaw, map_waypoints_x, map_waypoints_y); 
+            // cout << f_start[0] << "," << f_start[1] << endl;
+            // std::vector<double> c_xy; 
+            // cout << "moving ... " << endl;
+
+            for(int i = 0; i < 50; i++)
+            {
+              // 1.  driving a straight line
+              // next_x_vals.push_back(car_x+(dist_inc*i)*cos(deg2rad(car_yaw)));
+              // next_y_vals.push_back(car_y+(dist_inc*i)*sin(deg2rad(car_yaw)));
+
+              // 2. stay in the line, using frenet coordinates
+              // the getXY() methods requires s, x, y, not x, y, s, the later can not move. 
+              // this now moves, but osscilate a lot. 
+              // c_xy = getXY(f_start[0]+dist_inc*i, f_start[1], map_waypoints_s, map_waypoints_x, map_waypoints_y);
+
+              // next_x_vals.push_back(c_xy[0]);
+              // next_y_vals.push_back(c_xy[1]);
+
+              // above my work, not working. why? 
+              double next_s = car_s + (i + 1) * dist_inc;
+              double next_d = 6;
+              std::vector<double> xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+
+              next_x_vals.push_back(xy[0]);
+              next_y_vals.push_back(xy[1]);              
+            }
+/*
+
+            // coding stops here; 
+
           	msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 
