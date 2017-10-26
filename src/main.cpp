@@ -282,6 +282,8 @@ int main()
             }
           }
 
+          cout << cars_in_left_lane.size() << ", " << cars_in_middle_lane.size() << ", " << cars_in_right_lane.size() << endl;
+
           int prev_size = previous_path_x.size();
 
           // if there are remaining point in previous path, 
@@ -420,48 +422,49 @@ int main()
                 }
               }
             } 
-            else {
-              ref_vel -= 0.224;
-            }
-            // else 
-            // {
-            //   if (cars_in_middle_lane.size() == 0)
-            //   {
-            //     lane = 1;
-            //   } else {
-            //     for (int i = 0; i < cars_in_middle_lane.size(); ++i)
-            //       {
-            //         double vx = cars_in_left_lane[i][3];
-            //         double vy = cars_in_left_lane[i][4];
-            //         double check_speed = sqrt(vx*vx + vy*vy);
-            //         double check_car_s = cars_in_left_lane[i][5];
+            else 
+            {
+              if (cars_in_middle_lane.size() == 0)
+              {
+                lane = 1;
+              } else {
+                for (int i = 0; i < cars_in_middle_lane.size(); ++i)
+                  {
 
-            //         if (check_car_s > car_s) // the leading cars 
-            //         {
-            //           double dist = check_car_s - car_s;
-            //           if(dist < nl_dist) {
-            //             nl_dist = dist;
-            //           }
-            //         } 
-            //         else 
-            //         {
-            //           double dist = car_s - check_car_s;
-            //           if (dist < nt_dist)
-            //           {
-            //             nt_dist = dist;
-            //           }
-            //         }
-            //       }
+                    // here is a segmention fault, 
+                    // caused by a bug, instead of using "cars_in_middle_lane", i used "cars_in_left_lane"
+                    // now wiht a collision, the car can drive 5.14 miles. 
+                    double vx = cars_in_middle_lane[i][3];
+                    double vy = cars_in_middle_lane[i][4];
+                    double check_speed = sqrt(vx*vx + vy*vy);
+                    double check_car_s = cars_in_middle_lane[i][5];
 
-            //       if (nl_dist > chnge_lane_safe_distance && nt_dist > chnge_lane_safe_distance)
-            //       {
-            //         lane = 1;
-            //       } else {
-            //         ref_vel -= 0.224;
-            //       }
-            //       }
+                    if (check_car_s > car_s) // the leading cars 
+                    {
+                      double dist = check_car_s - car_s;
+                      if(dist < nl_dist) {
+                        nl_dist = dist;
+                      }
+                    } 
+                    else 
+                    {
+                      double dist = car_s - check_car_s;
+                      if (dist < nt_dist)
+                      {
+                        nt_dist = dist;
+                      }
+                    }
+                  }
+
+                  if (nl_dist > chnge_lane_safe_distance && nt_dist > chnge_lane_safe_distance)
+                  {
+                    lane = 1;
+                  } else {
+                    ref_vel -= 0.224;
+                  }
+                  }
               
-            // }
+            }
             // prepare change lane.
             // ref_vel -= 0.224;
             // a save lane change requies checking if there is safe space between the leading and tailing vehicles in other lanes: 
@@ -503,8 +506,6 @@ int main()
             // found that the car starts quite slow.
             // lane = 1;
           }
-
-          cout << lane << endl;
 
           std::vector<double> ptsx;
           std::vector<double> ptsy;
