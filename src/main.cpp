@@ -192,6 +192,7 @@ int main()
   string map_file_ = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
+  double chnge_lane_safe_distance = 10;
 
   ifstream in_map_(map_file_.c_str(), ifstream::in);
 
@@ -223,7 +224,7 @@ int main()
   // double ref_vel = 49.5;
   double ref_vel = 0.0;
 
-  h.onMessage([&ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy, &lane](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+  h.onMessage([&chnge_lane_safe_distance, &ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy, &lane](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -261,6 +262,26 @@ int main()
 
           // =====  above is the provided code 
 
+          std::vector<std::vector<double>> cars_in_left_lane;
+          std::vector<std::vector<double>> cars_in_right_lane;
+          std::vector<std::vector<double>> cars_in_middle_lane;
+          for (int i = 0; i < sensor_fusion.size(); ++i)
+          {
+            float d = sensor_fusion[i][6];
+            if (d < 4) // left 
+            {
+              cars_in_left_lane.push_back(sensor_fusion[i]);
+            } 
+            else if (d > 4 && d < 8)
+            {
+              cars_in_middle_lane.push_back(sensor_fusion[i]);
+            }
+            else if (d > 8)
+            {
+              cars_in_right_lane.push_back(sensor_fusion[i]);
+            }
+          }
+
           int prev_size = previous_path_x.size();
 
           // if there are remaining point in previous path, 
@@ -271,6 +292,8 @@ int main()
           }
 
           bool too_close = false;
+          bool left_turn_safe = false;
+          bool right_turn_safe = false;
 
           for (int i = 0; i < sensor_fusion.size(); ++i)
           {
@@ -293,19 +316,185 @@ int main()
                 // this happens because the speed is suddenly changed from 
                 // 49.5 to 29.5. 
                 // ref_vel = 29.5;
+                // if too close, we are going to change lane. 
                 too_close = true;
-                // if it's close, we blindly change to the left lane. 
-                if (lane > 0)
-                {
-                  lane = 0;
-                }
+                // // if it's close, we blindly change to the left lane. 
+                // if (lane > 0)
+                // {
+                //   lane = 0;
+                // }
               }
             }
           }
 
           if (too_close)
           {
-            ref_vel -= 0.224;
+
+            double nl_dist = 56000; 
+            double nt_dist = 56000;
+
+            if (lane == 1)
+            {
+              if (cars_in_left_lane.size() == 0)
+              {
+                left_turn_safe = true;
+              } else {
+                for (int i = 0; i < cars_in_left_lane.size(); ++i)
+                {
+                  double vx = cars_in_left_lane[i][3];
+                  double vy = cars_in_left_lane[i][4];
+                  double check_speed = sqrt(vx*vx + vy*vy);
+                  double check_car_s = cars_in_left_lane[i][5];
+
+                  if (check_car_s > car_s) // the leading cars 
+                  {
+                    double dist = check_car_s - car_s;
+                    if(dist < nl_dist) {
+                      nl_dist = dist;
+                    }
+                  } 
+                  else 
+                  {
+                    double dist = car_s - check_car_s;
+                    if (dist < nt_dist)
+                    {
+                      nt_dist = dist;
+                    }
+                  }
+                }
+
+                if (nl_dist > chnge_lane_safe_distance && nt_dist > chnge_lane_safe_distance)
+                {
+                  left_turn_safe = true;
+                }
+              }
+
+              if (cars_in_right_lane.size() == 0)
+              {
+                right_turn_safe = true;
+              } else {
+                // check the right lane 
+                nl_dist = 56000;
+                nt_dist = 56000;
+                for (int i = 0; i < cars_in_right_lane.size(); ++i)
+                {
+                  double vx = cars_in_left_lane[i][3];
+                  double vy = cars_in_left_lane[i][4];
+                  double check_speed = sqrt(vx*vx + vy*vy);
+                  double check_car_s = cars_in_left_lane[i][5];
+
+                  if (check_car_s > car_s) // the leading cars 
+                  {
+                    double dist = check_car_s - car_s;
+                    if(dist < nl_dist) {
+                      nl_dist = dist;
+                    }
+                  } 
+                  else 
+                  {
+                    double dist = car_s - check_car_s;
+                    if (dist < nt_dist)
+                    {
+                      nt_dist = dist;
+                    }
+                  }
+                }
+                if (nl_dist > chnge_lane_safe_distance && nt_dist > chnge_lane_safe_distance)
+                {
+                  right_turn_safe = true;
+                }
+              }
+              
+              if (left_turn_safe)
+              {
+                lane = 0;
+              }
+              else 
+              {
+                if (right_turn_safe)
+                {
+                  lane = 2;
+                }
+                else {
+                  ref_vel -= 0.224;
+                }
+              }
+            } 
+            else {
+              ref_vel -= 0.224;
+            }
+            // else 
+            // {
+            //   if (cars_in_middle_lane.size() == 0)
+            //   {
+            //     lane = 1;
+            //   } else {
+            //     for (int i = 0; i < cars_in_middle_lane.size(); ++i)
+            //       {
+            //         double vx = cars_in_left_lane[i][3];
+            //         double vy = cars_in_left_lane[i][4];
+            //         double check_speed = sqrt(vx*vx + vy*vy);
+            //         double check_car_s = cars_in_left_lane[i][5];
+
+            //         if (check_car_s > car_s) // the leading cars 
+            //         {
+            //           double dist = check_car_s - car_s;
+            //           if(dist < nl_dist) {
+            //             nl_dist = dist;
+            //           }
+            //         } 
+            //         else 
+            //         {
+            //           double dist = car_s - check_car_s;
+            //           if (dist < nt_dist)
+            //           {
+            //             nt_dist = dist;
+            //           }
+            //         }
+            //       }
+
+            //       if (nl_dist > chnge_lane_safe_distance && nt_dist > chnge_lane_safe_distance)
+            //       {
+            //         lane = 1;
+            //       } else {
+            //         ref_vel -= 0.224;
+            //       }
+            //       }
+              
+            // }
+            // prepare change lane.
+            // ref_vel -= 0.224;
+            // a save lane change requies checking if there is safe space between the leading and tailing vehicles in other lanes: 
+            // 1. if current lane is in the middle:
+            //    1. if both left and right lane available, then change left;
+            //    2. if only right available, then change right;
+            //    3. if no available, slow donw and follow;
+            // 2. if current lane is in the side, check the ajacent lane only:
+            //    1. if available, perform lane change;
+            //    2. else, keep lane and slow down. 
+
+            // how to calculate if it's safe?
+            // if the car in the middle
+            // if (lane == 1)
+            // {
+            //   double leading_dist = 0;
+            //   for (int i = 0; i < sensor_fusion.size(); ++i)
+            //   {
+            //     float d = sensor_fusion[i][6];
+            //     if (d > 0 && d < 4)  // the left lane
+            //     {
+            //       double vx = sensor_fusion[i][3];
+            //       double vy = sensor_fusion[i][4];
+            //       double check_speed = sqrt(vx*vx + vy*vy);
+            //       double check_car_s = sensor_fusion[i][5];
+            //       check_car_s += ((double)prev_size*0.02*check_speed);
+            //       if (check_car_s > car_s && (check_car_s - car_s) > 5) // if the distance between leading can and our car is larger than 5 meters, we are safe 
+            //       {
+            //         too_close = true;
+            //       }
+            //     }
+            //   }
+            // }
           }
           else if (ref_vel < 49.5)
           {
@@ -314,6 +503,8 @@ int main()
             // found that the car starts quite slow.
             // lane = 1;
           }
+
+          cout << lane << endl;
 
           std::vector<double> ptsx;
           std::vector<double> ptsy;
