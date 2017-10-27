@@ -67,14 +67,6 @@ int ClosestWaypoint(double x, double y, const vector<double> &maps_x, const vect
 }
 
 
-// how to write comments; google comment code style: https://google.github.io/styleguide/cppguide.html#Comments
-
-// the x, y are the car's location. 
-// what's the theta?
-// todo: explain this with a graph.
-// todo: why the next way points is calcualted? by considering the heading direction of the car, this will get the next way point the car will drive to, this is necessary because the nearest point may be behin the car, and we don't want the car to drive back. 
-
-
 int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x, const vector<double> &maps_y)
 {
 
@@ -175,6 +167,7 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
+// this methods calcuate the leading and tailing nearest cars in the lane. 
 std::vector<double> getNearestCars(std::vector<std::vector<double>> cars_in_lane, double car_s, double prev_size) {
   double leading_nearest = 56000;
   double tailing_nearest = 56000;
@@ -206,12 +199,12 @@ std::vector<double> getNearestCars(std::vector<std::vector<double>> cars_in_lane
   return {leading_nearest, tailing_nearest};
 }
 
+
 int main() 
 {
   uWS::Hub h;
 
 
-  // todo: moving the file parsing to a function, maybe a file. 
   // Load up map values for waypoint's x,y,s and d normalized normal vectors
   vector<double> map_waypoints_x;
   vector<double> map_waypoints_y;
@@ -223,6 +216,8 @@ int main()
   string map_file_ = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
+
+  // the extra safe place to change lane.
   double cl_safe_dist = 20;
 
   ifstream in_map_(map_file_.c_str(), ifstream::in);
@@ -269,8 +264,6 @@ int main()
         auto j = json::parse(s);
         
         string event = j[0].get<string>();
-        // xg: for now, the simulator gives us the localization data, 
-        // in the practice, this will de determined by localization modular.  
         if (event == "telemetry") {
           // j[1] is the data JSON object
         	// Main car's localization Data
@@ -291,8 +284,7 @@ int main()
         	// Sensor Fusion Data, a list of all other cars on the same side of the road.
         	auto sensor_fusion = j[1]["sensor_fusion"];
 
-          // =====  above is the provided code 
-
+          // align the cars in each lane, 
           std::vector<std::vector<double>> cars_in_left_lane;
           std::vector<std::vector<double>> cars_in_right_lane;
           std::vector<std::vector<double>> cars_in_middle_lane;
@@ -313,7 +305,7 @@ int main()
             }
           }
 
-          cout << cars_in_left_lane.size() << ", " << cars_in_middle_lane.size() << ", " << cars_in_right_lane.size() << endl;
+          // cout << cars_in_left_lane.size() << ", " << cars_in_middle_lane.size() << ", " << cars_in_right_lane.size() << endl;
 
           int prev_size = previous_path_x.size();
 
@@ -345,17 +337,7 @@ int main()
               // with the condition check of check_car_s > car_s
               if (check_car_s > car_s && (check_car_s - car_s) < 30)
               {
-                // with this set, i saw a jerk in the simulator, 
-                // this happens because the speed is suddenly changed from 
-                // 49.5 to 29.5. 
-                // ref_vel = 29.5;
-                // if too close, we are going to change lane. 
                 too_close = true;
-                // // if it's close, we blindly change to the left lane. 
-                // if (lane > 0)
-                // {
-                //   lane = 0;
-                // }
               }
             }
           }
@@ -363,55 +345,72 @@ int main()
           if (too_close)
           {
 
-            // double nl_dist = 56000; 
-            // double nt_dist = 56000;
             std::vector<double> nearest_cars;
+
             if (lane == 1)
             {
+              // if the left lane is clear, it's safe to make left turn
               if (cars_in_left_lane.size() == 0)
               {
                 left_turn_safe = true;
               } else {
                 nearest_cars = getNearestCars(cars_in_left_lane, car_s, prev_size);
+                // if the nearest leading and tailing cars are outside 
+                // the dangerous zone [-cl_safe_dist, +cl_safe_dist], 
+                // it's safe to make left turn;
                 if (nearest_cars[0] > cl_safe_dist && nearest_cars[1] > cl_safe_dist)
                 {
                   left_turn_safe = true;
                 }
               }
 
+              // check if right turn is possible;
+              // ideally, once the left turn is possible, we can bypass 
+              // these calculation, to gain some performance. 
               if (cars_in_right_lane.size() == 0)
               {
+                // if right lane is clear, safe to make turn;
                 right_turn_safe = true;
               } else {
                 nearest_cars = getNearestCars(cars_in_right_lane, car_s, prev_size);
+
+                //if leading and tailing cars are outside the dangerouse zone,
+                // safe to make turn. 
                 if (nearest_cars[0] > cl_safe_dist && nearest_cars[1] > cl_safe_dist)
                 {
                   right_turn_safe = true;
                 }
               }
               
+              // state change
+              // if current lane is in the middle, and both left and right is safe, the left one has priority
               if (left_turn_safe)
               {
                 lane = 0;
               }
               else 
               {
+                // if only right lane possible, make right turn. 
                 if (right_turn_safe)
                 {
                   lane = 2;
                 }
                 else {
+                  // if neither side is possible, slowly slow down. 
                   ref_vel -= 0.224;
                 }
               }
             } 
+            // if the car is in either left or right lane, we check if the adjacent lane (which is the middle lane)if safe to make turn, we will not cross two lanes. 
             else 
             {
+              //middle lane clear, safe to make turn;
               if (cars_in_middle_lane.size() == 0)
               {
                 lane = 1;
               } else {
                 nearest_cars = getNearestCars(cars_in_middle_lane, car_s, prev_size);
+                // distance is enough to make the turn. 
                 if (nearest_cars[0] > cl_safe_dist && nearest_cars[1] > cl_safe_dist)
                 {
                   lane = 1;
@@ -421,28 +420,27 @@ int main()
               }
             }
           }
+          // if car is driving below the speed limit, 
+          // slowly speed up. 
           else if (ref_vel < 49.5)
           {
             ref_vel += 0.224;
           }
 
+          // once, we get all the parameters set, for example, the lane, 
+          // the speed, etc, we can not generate the waypoints. 
           std::vector<double> ptsx;
           std::vector<double> ptsy;
 
           double ref_x = car_x;
           double ref_y = car_y;
-          //xg-todo: when to convert to radius, when to use degree? 
           double ref_yaw = deg2rad(car_yaw);
-          // cout << "the car's parameter" << endl;
-          // cout << car_x << ", " << ", " << car_y << ", " << car_yaw << endl;
 
           // the points are used to generate the spline, 
           // if the value is less than 2 (zero or 1), it's hard to make the 
           // the spline. we at least give it two. 
-          // cout << "vaues in list " << prev_size << endl;
           if (prev_size < 2) 
           {
-            // xg-todo: use degree
             double prev_car_x = car_x - cos(car_yaw);
             double prev_car_y = car_y - sin(car_yaw);
 
@@ -463,9 +461,6 @@ int main()
             // get the next last point used by the car
             double ref_x_prev = previous_path_x[prev_size - 2];
             double ref_y_prev = previous_path_y[prev_size - 2];
-            // get the car's heading (angel) 
-            // but it's not used ? 
-            // xg-todo: that's the atan2() function, it used a lot;
             ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
 
             ptsx.push_back(ref_x_prev);
@@ -509,8 +504,6 @@ int main()
         	vector<double> next_y_vals;
 
           // reuse the previous path;
-          // don't the already be used? not, they are the leftovers. 
-          // the simulator makes sure only the leftovers returned.
           for (int i = 0; i < previous_path_x.size(); ++i)
           {
             next_x_vals.push_back(previous_path_x[i]);
@@ -558,56 +551,14 @@ int main()
             next_x_vals.push_back(x_point);
             next_y_vals.push_back(y_point);
           }
-
-          // cout << " the points in the list " << endl;
-          // for (int i = 0; i < next_x_vals.size(); ++i)
-          // {
-          //   cout << next_x_vals[i] << ", " << next_y_vals[i] << endl;
-          // }
-
-          // cout << next_x_vals.size() << endl;
-        	// // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-         //  //xg: getting started code:
-         //  double dist_inc = 0.5;
           
-         //  // std::vector<double> f_start = getFrenet(car_x, car_y, car_yaw, map_waypoints_x, map_waypoints_y); 
-         //  // cout << f_start[0] << "," << f_start[1] << endl;
-         //  // std::vector<double> c_xy; 
-         //  // cout << "moving ... " << endl;
-
-         //  for(int i = 0; i < 50; i++)
-         //  {
-         //    // 1.  driving a straight line
-         //    // next_x_vals.push_back(car_x+(dist_inc*i)*cos(deg2rad(car_yaw)));
-         //    // next_y_vals.push_back(car_y+(dist_inc*i)*sin(deg2rad(car_yaw)));
-
-         //    // 2. stay in the line, using frenet coordinates
-         //    // the getXY() methods requires s, x, y, not x, y, s, the later can not move. 
-         //    // this now moves, but osscilate a lot. 
-         //    // c_xy = getXY(f_start[0]+dist_inc*i, f_start[1], map_waypoints_s, map_waypoints_x, map_waypoints_y);
-
-         //    // next_x_vals.push_back(c_xy[0]);
-         //    // next_y_vals.push_back(c_xy[1]);
-
-         //    // above my work, not working. why? 
-         //    double next_s = car_s + (i + 1) * dist_inc;
-         //    double next_d = 6;
-         //    std::vector<double> xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-
-         //    next_x_vals.push_back(xy[0]);
-         //    next_y_vals.push_back(xy[1]);              
-         //  }
-          // cout << next_x_vals[0] << ", " << next_y_vals[0] << endl;
-          // STOP
           json msgJson;
         	msgJson["next_x"] = next_x_vals;
         	msgJson["next_y"] = next_y_vals;
 
         	auto msg = "42[\"control\","+ msgJson.dump()+"]";
 
-        	//this_thread::sleep_for(chrono::milliseconds(1000));
         	ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-          
         }
       } else {
         // Manual driving
@@ -650,17 +601,3 @@ int main()
   }
   h.run();
 }
-
-
-/**
-========================
-the errors:
-variable 'lane' cannot be implicitly captured in a lambda with no capture-default specified
-          vector<double > next_wp1 = getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypo...
-
-https://stackoverflow.com/questions/30217956/error-variable-cannot-be-implicitly-captured-because-no-default-capture-mode-h/30217989
-
-
-========================
-
-*/
