@@ -223,7 +223,7 @@ int main()
   string map_file_ = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
-  double cl_safe_dist = 10;
+  double cl_safe_dist = 20;
 
   ifstream in_map_(map_file_.c_str(), ifstream::in);
 
