@@ -46,7 +46,7 @@ double distance(double x1, double y1, double x2, double y2)
 int ClosestWaypoint(double x, double y, const vector<double> &maps_x, const vector<double> &maps_y)
 {
 
-	double closestLen = 100000; //large number
+	double closestLen = 0000; //large number
 	int closestWaypoint = 0;
 
 	for(int i = 0; i < maps_x.size(); i++)
@@ -428,7 +428,7 @@ int main()
           }
 
           // once, we get all the parameters set, for example, the lane, 
-          // the speed, etc, we can not generate the waypoints. 
+          // the speed, etc, we can now generate the waypoints. 
           std::vector<double> ptsx;
           std::vector<double> ptsy;
 
